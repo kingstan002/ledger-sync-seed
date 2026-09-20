@@ -14,23 +14,37 @@ public final class Amounts {
 
     private Amounts() {}
 
-    private static final Pattern AMOUNT =
-            Pattern.compile("(?:Rs\\.?|INR)\\s*([0-9,]+\\.[0-9]{2})");
 
-    private static final Pattern BALANCE = Pattern.compile(
-            "(?:Avl\\s*Bal|Available\\s*Balance|BalAvl|Avl\\s*Limit)\\s*:?\\s*"
-                    + "(?:Rs\\.?|INR)\\s*([0-9,]+\\.[0-9]{2})",
+    private static final Pattern AMOUNT =
+            Pattern.compile("(?:Rs\\.?|INR)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)");
+
+
+    private static final Pattern BALANCE_MARKER = Pattern.compile(
+            "\\b(?:Avl\\s*Bal|Available\\s*Balance|BalAvl|Avl\\s*Limit)\\b\\s*:?",
             Pattern.CASE_INSENSITIVE);
 
-    /** The transaction amount: the first rupee figure in the message. */
+
+    private static final Pattern BALANCE = Pattern.compile(
+            "\\b(?:Avl\\s*Bal|Available\\s*Balance|BalAvl|Avl\\s*Limit)\\b\\s*:?\\s*"
+                    + "(?:Rs\\.?|INR)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)",
+            Pattern.CASE_INSENSITIVE);
+
+
     public static BigDecimal first(String body) {
-        Matcher m = AMOUNT.matcher(body);
+        if (body == null) return null;
+
+
+        Matcher bm = BALANCE_MARKER.matcher(body);
+        String transactionPart = bm.find() ? body.substring(0, bm.start()) : body;
+
+        Matcher m = AMOUNT.matcher(transactionPart);
         if (!m.find()) return null;
         return toDecimal(m.group(1));
     }
 
     /** The balance the bank quoted, if it quoted one. */
     public static BigDecimal statedBalance(String body) {
+        if (body == null) return null;
         Matcher m = BALANCE.matcher(body);
         if (!m.find()) return null;
         return toDecimal(m.group(1));
