@@ -8,3 +8,9 @@ submission/
 .idea/
 *.iml
 .DS_Store
+
+ingest.log
+skipped.txt
+data/
+build/
+.gradle/
