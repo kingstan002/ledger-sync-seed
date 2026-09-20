@@ -79,8 +79,9 @@ public final class SqlLedgerStore implements LedgerStore, AutoCloseable {
     @Override
     public void save(NormalizedTxn t) {
         try (PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO ledger(account_last4, occurred_at, direction, amount,"
+                "MERGE INTO ledger (account_last4, occurred_at, direction, amount,"
                         + " category, merchant, source_message_ids)"
+                        + " KEY (account_last4, occurred_at, direction, amount)"
                         + " VALUES (?,?,?,?,?,?,?)")) {
             ps.setString(1, t.accountLast4());
             ps.setString(2, t.occurredAt().toString());
