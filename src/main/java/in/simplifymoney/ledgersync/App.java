@@ -4,6 +4,7 @@ import in.simplifymoney.ledgersync.ingest.IngestService;
 import in.simplifymoney.ledgersync.json.Json;
 import in.simplifymoney.ledgersync.parse.Parsers;
 import in.simplifymoney.ledgersync.report.Reports;
+import in.simplifymoney.ledgersync.store.MongoDocumentStore;
 import in.simplifymoney.ledgersync.store.SqlLedgerStore;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,7 +23,7 @@ public final class App {
 
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
-            System.err.println("usage: migrate | ingest <corpus.jsonl> | report <out-dir>");
+            System.err.println("usage: migrate | ingest <corpus.jsonl> | report <out-dir> | backfill | check-consistency");
             System.exit(2);
         }
         Files.createDirectories(DB.getParent());
@@ -57,6 +58,35 @@ public final class App {
                     Files.writeString(out.resolve("reconciliation.json"),
                             Json.writePretty(Reports.reconciliation(ledger)));
                     System.out.println("wrote 3 files to " + out);
+                }
+            }
+            case "backfill" -> {
+                try (SqlLedgerStore sql = new SqlLedgerStore(DB);
+                     MongoDocumentStore mongo = new MongoDocumentStore(
+                             "mongodb://ledger:ledger@localhost:27017", "ledger_sync")) {
+                    sql.migrate(MIGRATIONS);
+                    var result = new in.simplifymoney.ledgersync.store.Backfill(sql, mongo).run();
+                    System.out.println("backfill: read=" + result.read()
+                            + " written=" + result.written()
+                            + " skipped=" + result.skipped());
+                }
+            }
+            case "check-consistency" -> {
+                try (SqlLedgerStore sql = new SqlLedgerStore(DB);
+                     MongoDocumentStore mongo = new MongoDocumentStore(
+                             "mongodb://ledger:ledger@localhost:27017", "ledger_sync")) {
+                    var divergences = new in.simplifymoney.ledgersync.store.ConsistencyChecker(sql, mongo).check();
+                    if (divergences.isEmpty()) {
+                        System.out.println("OK: stores agree");
+                    } else {
+                        System.out.println("DIVERGENCES (" + divergences.size() + "):");
+                        for (var d : divergences) {
+                            System.out.println("  " + d.what()
+                                    + "\n    sql=" + d.inSql()
+                                    + "\n    mongo=" + d.inDocuments());
+                        }
+                        System.exit(1);
+                    }
                 }
             }
             default -> {
