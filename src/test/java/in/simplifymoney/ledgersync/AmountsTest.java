@@ -1,6 +1,7 @@
 package in.simplifymoney.ledgersync;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import in.simplifymoney.ledgersync.parse.Amounts;
 import java.math.BigDecimal;
@@ -44,5 +45,27 @@ class AmountsTest {
     @Test
     void ignoresAMessageWithNoAmountAtAll() {
         assertEquals(null, Amounts.first("Your Swiggy order is on the way!"));
+    }
+
+    // ---- NEW TEST ----
+
+    @Test
+    public void testExtractsTransactionAmountAndIgnoresBalance() {
+
+        String smsBody = "Rs.5 debited from a/c **4821 on 04-07-26 at 07:19 to "
+                + "UPI/WATER CAN. Avl Bal: Rs.92,213.10.";
+
+        BigDecimal transactionAmount = Amounts.first(smsBody);
+        BigDecimal statedBalance = Amounts.statedBalance(smsBody);
+
+
+        assertNotNull(transactionAmount, "Transaction amount should not be null");
+        assertEquals(new BigDecimal("5.00"), transactionAmount,
+                "Transaction amount should be 5.00");
+
+
+        assertNotNull(statedBalance, "Stated balance should not be null");
+        assertEquals(new BigDecimal("92213.10"), statedBalance,
+                "Stated balance should be 92213.10");
     }
 }
